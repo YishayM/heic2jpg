@@ -64,15 +64,19 @@ func (w *writerSkipper) Write(p []byte) (n int, err error) {
 	if w.wrote >= w.skip {
 		return w.w.Write(p)
 	}
-	
+
 	if w.wrote+len(p) <= w.skip {
 		w.wrote += len(p)
 		return len(p), nil
 	}
-	
+
 	skipRemaining := w.skip - w.wrote
 	w.wrote += len(p)
-	return w.w.Write(p[skipRemaining:])
+	_, err = w.w.Write(p[skipRemaining:])
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }
 
 // newWriterExif creates a writer that embeds EXIF data into JPEG
