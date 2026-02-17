@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2024-XX-XX
+## [Unreleased]
+
+### Added
+- Human-readable error messages for non-HEIC files
+- File count confirmation prompt for large batches (skip with `--yes`/`-y`)
+- Color-coded error summary at end of batch conversions
+- Platform info in `--version` output
+- Grouped and documented flags in `--help`
+- `[DRY-RUN]` prefix for dry-run output
+- Ctrl+C graceful handling with partial summary
+- Cancel hint for large batches (10+ files)
+
+### Changed
+- Error messages now use lowercase for consistency
+- Test assertions updated to match new output format
+
+## [1.0.0] - 2026-02-17
 
 ### Added
 - Initial release of heic2jpg

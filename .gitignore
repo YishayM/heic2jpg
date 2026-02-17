@@ -27,7 +27,7 @@ Thumbs.db
 npm-debug.log*
 
 # Go binaries
-heic2jpg
+/heic2jpg
 *.exe
 
 # Test outputs

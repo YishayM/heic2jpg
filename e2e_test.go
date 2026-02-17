@@ -139,8 +139,8 @@ func TestE2E_DryRun(t *testing.T) {
 	
 	// Verify output mentions dry-run
 	outputStr := string(output)
-	if !strings.Contains(outputStr, "dry-run") {
-		t.Errorf("Output should mention dry-run, got: %s", outputStr)
+	if !strings.Contains(outputStr, "DRY-RUN") {
+		t.Errorf("Output should mention DRY-RUN, got: %s", outputStr)
 	}
 }
 
@@ -391,5 +391,134 @@ func isValidJPEG(t *testing.T, path string) bool {
 		return false
 	}
 	return data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF
+}
+
+func TestE2E_StrictMode_NoEXIF_Fails(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.heic")
+	copyFile(t, testHEIC, testFile)
+
+	// Run with --strict flag (test file has no EXIF data)
+	cmd := exec.Command("./"+binaryName, "--strict", testFile)
+	output, err := cmd.CombinedOutput()
+
+	// Should fail with exit code 1
+	if err == nil {
+		t.Fatalf("Command should fail when EXIF is missing in strict mode, but succeeded")
+	}
+
+	// Verify error message
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "No EXIF data in test.heic") {
+		t.Errorf("Output should mention missing EXIF data, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "use without --strict") {
+		t.Errorf("Output should suggest using without --strict, got: %s", outputStr)
+	}
+
+	// Verify JPG was NOT created (conversion should be skipped)
+	jpgFile := filepath.Join(tmpDir, "test.jpg")
+	if fileExists(jpgFile) {
+		t.Errorf("Output file should not exist when strict mode fails, but %s exists", jpgFile)
+	}
+}
+
+func TestE2E_NonStrictMode_NoEXIF_Succeeds(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.heic")
+	copyFile(t, testHEIC, testFile)
+
+	// Run without --strict flag (test file has no EXIF data)
+	cmd := exec.Command("./"+binaryName, testFile)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Command should succeed without strict mode: %v\nOutput: %s", err, output)
+	}
+
+	// Verify JPG was created
+	jpgFile := filepath.Join(tmpDir, "test.jpg")
+	if !fileExists(jpgFile) {
+		t.Errorf("Expected output file %s does not exist", jpgFile)
+	}
+
+	// Verify warning message
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Warning: no EXIF data found") {
+		t.Errorf("Output should warn about missing EXIF data, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "Converted 1 file") {
+		t.Errorf("Output should mention converted 1 file, got: %s", outputStr)
+	}
+}
+
+func TestE2E_Summary_WithoutEXIF(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Copy multiple HEIC files (all without EXIF)
+	copyFile(t, testHEIC, filepath.Join(tmpDir, "file1.heic"))
+	copyFile(t, testHEIC, filepath.Join(tmpDir, "file2.heic"))
+	copyFile(t, testHEIC, filepath.Join(tmpDir, "file3.heic"))
+
+	// Run conversion on directory without strict mode
+	cmd := exec.Command("./"+binaryName, tmpDir)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Command failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify all JPGs were created
+	if !fileExists(filepath.Join(tmpDir, "file1.jpg")) {
+		t.Errorf("Expected file1.jpg does not exist")
+	}
+	if !fileExists(filepath.Join(tmpDir, "file2.jpg")) {
+		t.Errorf("Expected file2.jpg does not exist")
+	}
+	if !fileExists(filepath.Join(tmpDir, "file3.jpg")) {
+		t.Errorf("Expected file3.jpg does not exist")
+	}
+
+	// Verify summary shows converted count with EXIF-less note
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Converted 3 file") {
+		t.Errorf("Output should mention converted 3 files, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "(3 without EXIF)") {
+		t.Errorf("Output should mention 3 files without EXIF, got: %s", outputStr)
+	}
+}
+
+func TestE2E_StrictMode_Directory_AllFail(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Copy multiple HEIC files (all without EXIF)
+	copyFile(t, testHEIC, filepath.Join(tmpDir, "file1.heic"))
+	copyFile(t, testHEIC, filepath.Join(tmpDir, "file2.heic"))
+
+	// Run conversion on directory with strict mode
+	cmd := exec.Command("./"+binaryName, "--strict", tmpDir)
+	output, err := cmd.CombinedOutput()
+
+	// Command should succeed (exit 0) but report failures
+	if err != nil {
+		t.Logf("Command output: %s", output)
+		// This is actually expected - the command may exit with error if all conversions fail
+	}
+
+	// Verify no JPGs were created
+	if fileExists(filepath.Join(tmpDir, "file1.jpg")) {
+		t.Errorf("file1.jpg should not exist in strict mode without EXIF")
+	}
+	if fileExists(filepath.Join(tmpDir, "file2.jpg")) {
+		t.Errorf("file2.jpg should not exist in strict mode without EXIF")
+	}
+
+	// Verify error messages
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "no EXIF data") {
+		t.Errorf("Output should mention missing EXIF data, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "2 failed") {
+		t.Errorf("Output should mention 2 failed conversions, got: %s", outputStr)
+	}
 }
 

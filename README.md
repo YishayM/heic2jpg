@@ -35,6 +35,8 @@ heic2jpg --output ./converted photos/
 
 ### Download Pre-built Binaries
 
+> **Note:** Replace `yourusername` in the URLs below with the actual GitHub username/organization after publishing.
+
 Download the appropriate binary for your platform:
 
 **macOS (Apple Silicon / M1/M2/M3):**
@@ -116,9 +118,49 @@ heic2jpg --pattern "IMG_{index}"
 heic2jpg --pattern "{date}_{name}"
 ```
 
+**Recursive directory scanning:**
+```bash
+heic2jpg --recursive photos/
+# or use short form
+heic2jpg -r photos/
+```
+
 **Dry-run mode (preview without converting):**
 ```bash
 heic2jpg --dry-run photos/
+```
+
+**Skip confirmation prompts:**
+```bash
+# Useful for automation or when processing many files
+heic2jpg --yes photos/
+# or use short form
+heic2jpg -y photos/
+```
+
+**Overwrite existing files:**
+```bash
+heic2jpg --force photos/
+# or use short form
+heic2jpg -f photos/
+```
+
+**Limit file size:**
+```bash
+# Only process files up to 500MB (default)
+heic2jpg --max-size 500MB photos/
+
+# Process files up to 1GB
+heic2jpg --max-size 1GB photos/
+
+# Disable size limit (use with caution)
+heic2jpg --max-size 0 photos/
+```
+
+**Strict EXIF mode:**
+```bash
+# Fail conversion if EXIF metadata is missing
+heic2jpg --strict photos/
 ```
 
 **Show version:**
