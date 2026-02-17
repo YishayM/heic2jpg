@@ -10,6 +10,7 @@ import (
 )
 
 // Convert converts a HEIC file to JPEG format, preserving EXIF data
+// Uses atomic file writes to prevent corrupted output files on crash/interruption
 func Convert(inputPath, outputPath string) error {
 	// Open input file
 	fi, err := os.Open(inputPath)
@@ -31,12 +32,23 @@ func Convert(inputPath, outputPath string) error {
 		return fmt.Errorf("failed to decode HEIC image: %w", err)
 	}
 
-	// Create output file
-	fo, err := os.OpenFile(outputPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	// Create temp file for atomic write
+	// Use .tmp suffix in same directory as final output
+	tempPath := outputPath + ".tmp"
+	fo, err := os.OpenFile(tempPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer fo.Close()
+
+	// Ensure temp file is cleaned up on error or panic
+	var success bool
+	defer func() {
+		fo.Close()
+		if !success {
+			// Remove temp file if we didn't succeed
+			os.Remove(tempPath)
+		}
+	}()
 
 	// Create writer with EXIF support
 	w, err := newWriterExif(fo, exif)
@@ -50,6 +62,18 @@ func Convert(inputPath, outputPath string) error {
 		return fmt.Errorf("failed to encode JPEG: %w", err)
 	}
 
+	// Close the file before renaming (required on Windows)
+	if err := fo.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	// Atomically rename temp file to final output path
+	if err := os.Rename(tempPath, outputPath); err != nil {
+		return fmt.Errorf("failed to rename temp file to output: %w", err)
+	}
+
+	// Mark success so defer doesn't delete the file
+	success = true
 	return nil
 }
 

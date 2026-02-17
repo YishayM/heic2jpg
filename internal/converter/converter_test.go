@@ -179,3 +179,36 @@ func TestConvert_InvalidOutputPath(t *testing.T) {
 	}
 }
 
+func TestConvert_AtomicWrite_NoOrphanedTempFiles(t *testing.T) {
+	// This test verifies that temp files are cleaned up on error
+	tmpDir := t.TempDir()
+	inputPath := filepath.Join(tmpDir, "input.heic")
+	outputPath := filepath.Join(tmpDir, "output.jpg")
+	tempPath := outputPath + ".tmp"
+
+	// Create an invalid HEIC file that will fail during decode
+	if err := os.WriteFile(inputPath, []byte("not a valid heic file"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Attempt conversion (should fail during decode)
+	err := Convert(inputPath, outputPath)
+	if err == nil {
+		t.Error("Convert() expected error for invalid HEIC file, got nil")
+	}
+
+	// Verify no temp file was left behind
+	if _, err := os.Stat(tempPath); err == nil {
+		t.Error("Temp file should have been cleaned up on error")
+	} else if !os.IsNotExist(err) {
+		t.Errorf("Unexpected error checking temp file: %v", err)
+	}
+
+	// Verify no output file was created
+	if _, err := os.Stat(outputPath); err == nil {
+		t.Error("Output file should not exist when conversion fails")
+	} else if !os.IsNotExist(err) {
+		t.Errorf("Unexpected error checking output file: %v", err)
+	}
+}
+
