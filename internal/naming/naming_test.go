@@ -101,7 +101,7 @@ func TestApplyPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ApplyPattern(testFile, tt.pattern, tt.index)
+			result, err := ApplyPattern(testFile, tt.pattern, tt.index, 999)
 			if err != nil {
 				t.Fatalf("ApplyPattern() error = %v", err)
 			}
@@ -113,7 +113,7 @@ func TestApplyPattern(t *testing.T) {
 }
 
 func TestApplyPattern_FileNotFound(t *testing.T) {
-	_, err := ApplyPattern("/nonexistent/file.heic", "{name}", 1)
+	_, err := ApplyPattern("/nonexistent/file.heic", "{name}", 1, 999)
 	if err == nil {
 		t.Error("ApplyPattern() expected error for nonexistent file, got nil")
 	}
@@ -170,7 +170,7 @@ func TestGenerateOutputPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := GenerateOutputPath(tt.inputPath, tt.pattern, tt.index, tt.outputDir)
+			result, err := GenerateOutputPath(tt.inputPath, tt.pattern, tt.index, tt.outputDir, 999)
 			if err != nil {
 				t.Fatalf("GenerateOutputPath() error = %v", err)
 			}
@@ -284,7 +284,7 @@ func TestGenerateOutputPath_PathTraversalAttacks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := GenerateOutputPath(testFile, tt.pattern, 1, tt.outputDir)
+			result, err := GenerateOutputPath(testFile, tt.pattern, 1, tt.outputDir, 1000)
 
 			if tt.wantError {
 				if err == nil {
@@ -343,7 +343,7 @@ func TestGenerateOutputPath_WindowsPathTraversal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := GenerateOutputPath(testFile, tt.pattern, 1, outputDir)
+			result, err := GenerateOutputPath(testFile, tt.pattern, 1, outputDir, 1000)
 
 			if tt.wantError {
 				if err == nil {
@@ -434,3 +434,164 @@ func containsMiddle(s, substr string) bool {
 	return false
 }
 
+
+// TestApplyPattern_LargeBatch tests that index width adapts to file count
+func TestApplyPattern_LargeBatch(t *testing.T) {
+	// Create a temporary test file
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test_image.heic")
+
+	f, err := os.Create(testFile)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	f.Close()
+
+	tests := []struct {
+		name       string
+		index      int
+		totalCount int
+		expected   string
+	}{
+		{
+			name:       "100 files - 3 digit padding",
+			index:      1,
+			totalCount: 100,
+			expected:   "001.jpg",
+		},
+		{
+			name:       "100 files - last file",
+			index:      100,
+			totalCount: 100,
+			expected:   "100.jpg",
+		},
+		{
+			name:       "1000 files - 4 digit padding",
+			index:      1,
+			totalCount: 1000,
+			expected:   "0001.jpg",
+		},
+		{
+			name:       "1000 files - file 999",
+			index:      999,
+			totalCount: 1000,
+			expected:   "0999.jpg",
+		},
+		{
+			name:       "1000 files - file 1000",
+			index:      1000,
+			totalCount: 1000,
+			expected:   "1000.jpg",
+		},
+		{
+			name:       "10000 files - 5 digit padding",
+			index:      1,
+			totalCount: 10000,
+			expected:   "00001.jpg",
+		},
+		{
+			name:       "10000 files - file 9999",
+			index:      9999,
+			totalCount: 10000,
+			expected:   "09999.jpg",
+		},
+		{
+			name:       "10000 files - file 10000",
+			index:      10000,
+			totalCount: 10000,
+			expected:   "10000.jpg",
+		},
+		{
+			name:       "single file - minimum 3 digits",
+			index:      1,
+			totalCount: 1,
+			expected:   "001.jpg",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ApplyPattern(testFile, "{index}", tt.index, tt.totalCount)
+			if err != nil {
+				t.Fatalf("ApplyPattern() error = %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("ApplyPattern() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestCalculateIndexWidth tests the width calculation logic
+func TestCalculateIndexWidth(t *testing.T) {
+	tests := []struct {
+		name       string
+		totalCount int
+		expected   int
+	}{
+		{
+			name:       "zero files",
+			totalCount: 0,
+			expected:   3,
+		},
+		{
+			name:       "negative count",
+			totalCount: -1,
+			expected:   3,
+		},
+		{
+			name:       "1 file",
+			totalCount: 1,
+			expected:   3,
+		},
+		{
+			name:       "99 files",
+			totalCount: 99,
+			expected:   3,
+		},
+		{
+			name:       "100 files",
+			totalCount: 100,
+			expected:   3,
+		},
+		{
+			name:       "999 files",
+			totalCount: 999,
+			expected:   3,
+		},
+		{
+			name:       "1000 files",
+			totalCount: 1000,
+			expected:   4,
+		},
+		{
+			name:       "9999 files",
+			totalCount: 9999,
+			expected:   4,
+		},
+		{
+			name:       "10000 files",
+			totalCount: 10000,
+			expected:   5,
+		},
+		{
+			name:       "99999 files",
+			totalCount: 99999,
+			expected:   5,
+		},
+		{
+			name:       "100000 files",
+			totalCount: 100000,
+			expected:   6,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := calculateIndexWidth(tt.totalCount)
+			if result != tt.expected {
+				t.Errorf("calculateIndexWidth(%d) = %d, want %d", tt.totalCount, result, tt.expected)
+			}
+		})
+	}
+}

@@ -2,17 +2,34 @@ package naming
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
+// calculateIndexWidth determines the number of digits needed to represent totalCount
+// Returns at least 3 for consistency with existing behavior
+func calculateIndexWidth(totalCount int) int {
+	if totalCount <= 0 {
+		return 3 // Default minimum width
+	}
+	// Calculate number of digits needed
+	width := int(math.Log10(float64(totalCount))) + 1
+	// Ensure minimum width of 3
+	if width < 3 {
+		return 3
+	}
+	return width
+}
+
 // ApplyPattern applies a naming pattern to generate an output filename
 // Supported patterns:
 //   {name}  - original filename without extension
 //   {date}  - file modification date in YYYY-MM-DD format
-//   {index} - numbered sequence (001, 002, 003...)
-func ApplyPattern(inputPath, pattern string, index int) (string, error) {
+//   {index} - numbered sequence (001, 002, 003...) - width adapts to totalCount
+// totalCount: total number of files being processed (used to calculate index width)
+func ApplyPattern(inputPath, pattern string, index int, totalCount int) (string, error) {
 	// Get file info for metadata
 	info, err := os.Stat(inputPath)
 	if err != nil {
@@ -28,20 +45,25 @@ func ApplyPattern(inputPath, pattern string, index int) (string, error) {
 	modTime := info.ModTime()
 	dateStr := modTime.Format("2006-01-02")
 
+	// Calculate dynamic index width based on total count
+	indexWidth := calculateIndexWidth(totalCount)
+	indexFormat := fmt.Sprintf("%%0%dd", indexWidth)
+
 	// Apply pattern replacements
 	result := pattern
 	result = strings.ReplaceAll(result, "{name}", nameWithoutExt)
 	result = strings.ReplaceAll(result, "{date}", dateStr)
-	result = strings.ReplaceAll(result, "{index}", fmt.Sprintf("%03d", index))
+	result = strings.ReplaceAll(result, "{index}", fmt.Sprintf(indexFormat, index))
 
 	// Add .jpg extension
 	return result + ".jpg", nil
 }
 
 // GenerateOutputPath creates the full output path given input path, pattern, index, and output directory
-func GenerateOutputPath(inputPath, pattern string, index int, outputDir string) (string, error) {
+// totalCount: total number of files being processed (used to calculate index width)
+func GenerateOutputPath(inputPath, pattern string, index int, outputDir string, totalCount int) (string, error) {
 	// Apply the naming pattern
-	outputName, err := ApplyPattern(inputPath, pattern, index)
+	outputName, err := ApplyPattern(inputPath, pattern, index, totalCount)
 	if err != nil {
 		return "", err
 	}
