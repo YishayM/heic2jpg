@@ -25,3 +25,12 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Go binaries
+heic2jpg
+*.exe
+
+# Test outputs
+test_output/
+testrun/*.jpg
+emptydir/
