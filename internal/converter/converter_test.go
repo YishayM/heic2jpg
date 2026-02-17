@@ -158,7 +158,7 @@ func TestConvert_FileNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "output.jpg")
 
-	err := Convert("/nonexistent/file.heic", outputPath)
+	_, err := Convert("/nonexistent/file.heic", outputPath, 0)
 	if err == nil {
 		t.Error("Convert() expected error for nonexistent file, got nil")
 	}
@@ -173,7 +173,7 @@ func TestConvert_InvalidOutputPath(t *testing.T) {
 	}
 
 	// Try to write to an invalid output path
-	err := Convert(inputPath, "/nonexistent/directory/output.jpg")
+	_, err := Convert(inputPath, "/nonexistent/directory/output.jpg", 0)
 	if err == nil {
 		t.Error("Convert() expected error for invalid output path, got nil")
 	}
@@ -192,7 +192,7 @@ func TestConvert_AtomicWrite_NoOrphanedTempFiles(t *testing.T) {
 	}
 
 	// Attempt conversion (should fail during decode)
-	err := Convert(inputPath, outputPath)
+	_, err := Convert(inputPath, outputPath, 0)
 	if err == nil {
 		t.Error("Convert() expected error for invalid HEIC file, got nil")
 	}
@@ -212,3 +212,80 @@ func TestConvert_AtomicWrite_NoOrphanedTempFiles(t *testing.T) {
 	}
 }
 
+func TestConvert_FileSizeLimit(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputPath := filepath.Join(tmpDir, "large.heic")
+	outputPath := filepath.Join(tmpDir, "output.jpg")
+
+	// Create a file larger than 100 bytes
+	largeContent := make([]byte, 200)
+	if err := os.WriteFile(inputPath, largeContent, 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Test with size limit of 100 bytes (should fail)
+	_, err := Convert(inputPath, outputPath, 100)
+	if err == nil {
+		t.Error("Convert() expected error for file exceeding size limit, got nil")
+	}
+	if err != nil && !contains(err.Error(), "file too large") {
+		t.Errorf("Expected 'file too large' error, got: %v", err)
+	}
+
+	// Test with size limit of 0 (disabled, should still fail but for different reason - invalid HEIC)
+	_, err = Convert(inputPath, outputPath, 0)
+	if err == nil {
+		t.Error("Convert() expected error for invalid HEIC file, got nil")
+	}
+	// Should fail during decode, not size check
+	if err != nil && contains(err.Error(), "file too large") {
+		t.Errorf("Should not fail with size limit when limit is 0, got: %v", err)
+	}
+
+	// Test with size limit larger than file (should fail during decode, not size check)
+	_, err = Convert(inputPath, outputPath, 1000)
+	if err == nil {
+		t.Error("Convert() expected error for invalid HEIC file, got nil")
+	}
+	if err != nil && contains(err.Error(), "file too large") {
+		t.Errorf("Should not fail with size limit when file is smaller, got: %v", err)
+	}
+}
+
+func TestFormatSize(t *testing.T) {
+	tests := []struct {
+		bytes    int64
+		expected string
+	}{
+		{100, "100B"},
+		{1024, "1.0KB"},
+		{1536, "1.5KB"},
+		{1024 * 1024, "1.0MB"},
+		{1024*1024 + 512*1024, "1.5MB"},
+		{500 * 1024 * 1024, "500.0MB"},
+		{1024 * 1024 * 1024, "1.0GB"},
+		{2*1024*1024*1024 + 512*1024*1024, "2.5GB"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			result := formatSize(tt.bytes)
+			if result != tt.expected {
+				t.Errorf("formatSize(%d) = %s, want %s", tt.bytes, result, tt.expected)
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
