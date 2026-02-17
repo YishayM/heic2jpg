@@ -1,70 +1,129 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"heic2jpg/internal/converter"
+	"heic2jpg/internal/naming"
 	"heic2jpg/internal/scanner"
 )
 
+const version = "1.0.0"
+
 func main() {
-	switch len(os.Args) {
-	case 1:
-		// No args: convert all HEIC in current directory
-		convertDirectory(".")
-	case 2:
-		arg := os.Args[1]
-		if arg == "--help" || arg == "-h" {
-			printUsage()
-			return
-		}
+	// Define flags
+	var (
+		pattern    = flag.String("pattern", "{name}", "Output naming pattern (supports {name}, {date}, {index})")
+		outputDir  = flag.String("output", "", "Output directory (default: same as input)")
+		dryRun     = flag.Bool("dry-run", false, "Show what would be converted without doing it")
+		showVersion = flag.Bool("version", false, "Show version information")
+		versionShort = flag.Bool("v", false, "Show version information (short)")
+	)
 
-		// Check if arg is a directory or file
-		info, err := os.Stat(arg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+	// Custom usage message
+	flag.Usage = printUsage
 
-		if info.IsDir() {
-			// Directory: convert all HEIC files in it
-			convertDirectory(arg)
-		} else {
-			// Single file: auto-generate output name
-			outputPath := generateOutputPath(arg)
-			convertSingleFile(arg, outputPath)
-		}
-	case 3:
-		// Two args: single file with custom output
-		inputPath := os.Args[1]
-		outputPath := os.Args[2]
-		convertSingleFile(inputPath, outputPath)
-	default:
+	// Parse flags
+	flag.Parse()
+
+	// Handle version flag
+	if *showVersion || *versionShort {
+		fmt.Printf("heic2jpg version %s\n", version)
+		return
+	}
+
+	// Get remaining arguments (input paths)
+	args := flag.Args()
+
+	// Determine input path
+	var inputPath string
+	if len(args) == 0 {
+		// No args: use current directory
+		inputPath = "."
+	} else if len(args) == 1 {
+		inputPath = args[0]
+	} else {
+		fmt.Fprintf(os.Stderr, "Error: too many arguments\n")
 		printUsage()
 		os.Exit(1)
+	}
+
+	// Check if input is a directory or file
+	info, err := os.Stat(inputPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if info.IsDir() {
+		// Directory: convert all HEIC files in it
+		convertDirectory(inputPath, *pattern, *outputDir, *dryRun)
+	} else {
+		// Single file
+		convertSingleFile(inputPath, *pattern, *outputDir, *dryRun, 1)
 	}
 }
 
 func printUsage() {
+	fmt.Println("heic2jpg - Convert HEIC images to JPEG format")
+	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  heic2jpg                    Convert all HEIC files in current directory")
-	fmt.Println("  heic2jpg <directory>        Convert all HEIC files in specified directory")
-	fmt.Println("  heic2jpg <input.heic>       Convert single file (auto-generate output name)")
-	fmt.Println("  heic2jpg <input> <output>   Convert single file with custom output name")
+	fmt.Println("  heic2jpg [flags] [input]")
+	fmt.Println()
+	fmt.Println("Arguments:")
+	fmt.Println("  input                       File or directory to convert (default: current directory)")
+	fmt.Println()
+	fmt.Println("Flags:")
+	fmt.Println("  --pattern <pattern>         Output naming pattern (default: \"{name}\")")
+	fmt.Println("                              Supported placeholders:")
+	fmt.Println("                                {name}  - original filename without extension")
+	fmt.Println("                                {date}  - file modification date (YYYY-MM-DD)")
+	fmt.Println("                                {index} - numbered sequence (001, 002, 003...)")
+	fmt.Println("  --output <dir>              Output directory (default: same as input)")
+	fmt.Println("  --dry-run                   Show what would be converted without doing it")
+	fmt.Println("  -v, --version               Show version information")
+	fmt.Println("  -h, --help                  Show this help message")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  heic2jpg                              # Convert all HEIC in current directory")
+	fmt.Println("  heic2jpg photos/                      # Convert all HEIC in photos/")
+	fmt.Println("  heic2jpg photo.heic                   # Convert single file")
+	fmt.Println("  heic2jpg --pattern \"{name}_web\"       # Add suffix to filenames")
+	fmt.Println("  heic2jpg --pattern \"IMG_{index}\"      # Sequential numbering")
+	fmt.Println("  heic2jpg --output ./converted         # Output to specific directory")
+	fmt.Println("  heic2jpg --dry-run                    # Preview conversions")
 }
 
-func generateOutputPath(inputPath string) string {
-	ext := filepath.Ext(inputPath)
-	return strings.TrimSuffix(inputPath, ext) + ".jpg"
-}
 
-func convertSingleFile(inputPath, outputPath string) {
+
+func convertSingleFile(inputPath, pattern, outputDir string, dryRun bool, index int) {
+	// Generate output path using naming pattern
+	outputPath, err := naming.GenerateOutputPath(inputPath, pattern, index, outputDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating output path: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Ensure output directory exists (unless dry-run)
+	if !dryRun && outputDir != "" {
+		err := os.MkdirAll(outputDir, 0755)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	fmt.Printf("Converting %s → %s\n", filepath.Base(inputPath), filepath.Base(outputPath))
 
-	err := converter.Convert(inputPath, outputPath)
+	if dryRun {
+		fmt.Println("  (dry-run, skipping actual conversion)")
+		return
+	}
+
+	err = converter.Convert(inputPath, outputPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -73,7 +132,7 @@ func convertSingleFile(inputPath, outputPath string) {
 	fmt.Println("✓ Converted 1 file")
 }
 
-func convertDirectory(dirPath string) {
+func convertDirectory(dirPath, pattern, outputDir string, dryRun bool) {
 	// Find all HEIC files
 	heicFiles, err := scanner.FindHEICFiles(dirPath)
 	if err != nil {
@@ -86,15 +145,37 @@ func convertDirectory(dirPath string) {
 		return
 	}
 
+	// Ensure output directory exists (unless dry-run)
+	if !dryRun && outputDir != "" {
+		err := os.MkdirAll(outputDir, 0755)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	// Convert each file
 	successCount := 0
 	failCount := 0
 
-	for _, inputPath := range heicFiles {
-		outputPath := generateOutputPath(inputPath)
+	for i, inputPath := range heicFiles {
+		// Generate output path using naming pattern (index is 1-based)
+		outputPath, err := naming.GenerateOutputPath(inputPath, pattern, i+1, outputDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating output path for %s: %v\n", inputPath, err)
+			failCount++
+			continue
+		}
+
 		fmt.Printf("Converting %s → %s\n", filepath.Base(inputPath), filepath.Base(outputPath))
 
-		err := converter.Convert(inputPath, outputPath)
+		if dryRun {
+			fmt.Println("  (dry-run, skipping actual conversion)")
+			successCount++
+			continue
+		}
+
+		err = converter.Convert(inputPath, outputPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  Error: %v\n", err)
 			failCount++
@@ -104,7 +185,9 @@ func convertDirectory(dirPath string) {
 	}
 
 	// Print summary
-	if failCount == 0 {
+	if dryRun {
+		fmt.Printf("✓ Would convert %d file(s) (dry-run)\n", successCount)
+	} else if failCount == 0 {
 		fmt.Printf("✓ Converted %d file(s)\n", successCount)
 	} else {
 		fmt.Printf("✓ Converted %d file(s), %d failed\n", successCount, failCount)
