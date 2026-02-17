@@ -19,6 +19,8 @@ func main() {
 		pattern    = flag.String("pattern", "{name}", "Output naming pattern (supports {name}, {date}, {index})")
 		outputDir  = flag.String("output", "", "Output directory (default: same as input)")
 		dryRun     = flag.Bool("dry-run", false, "Show what would be converted without doing it")
+		force      = flag.Bool("force", false, "Overwrite existing files")
+		forceShort = flag.Bool("f", false, "Overwrite existing files (short)")
 		showVersion = flag.Bool("version", false, "Show version information")
 		versionShort = flag.Bool("v", false, "Show version information (short)")
 	)
@@ -58,12 +60,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Combine force flags
+	forceOverwrite := *force || *forceShort
+
 	if info.IsDir() {
 		// Directory: convert all HEIC files in it
-		convertDirectory(inputPath, *pattern, *outputDir, *dryRun)
+		convertDirectory(inputPath, *pattern, *outputDir, *dryRun, forceOverwrite)
 	} else {
 		// Single file
-		convertSingleFile(inputPath, *pattern, *outputDir, *dryRun, 1)
+		convertSingleFile(inputPath, *pattern, *outputDir, *dryRun, forceOverwrite, 1)
 	}
 }
 
@@ -84,6 +89,7 @@ func printUsage() {
 	fmt.Println("                                {index} - numbered sequence (001, 002, 003...)")
 	fmt.Println("  --output <dir>              Output directory (default: same as input)")
 	fmt.Println("  --dry-run                   Show what would be converted without doing it")
+	fmt.Println("  -f, --force                 Overwrite existing files")
 	fmt.Println("  -v, --version               Show version information")
 	fmt.Println("  -h, --help                  Show this help message")
 	fmt.Println()
@@ -99,7 +105,7 @@ func printUsage() {
 
 
 
-func convertSingleFile(inputPath, pattern, outputDir string, dryRun bool, index int) {
+func convertSingleFile(inputPath, pattern, outputDir string, dryRun, force bool, index int) {
 	// Generate output path using naming pattern
 	outputPath, err := naming.GenerateOutputPath(inputPath, pattern, index, outputDir)
 	if err != nil {
@@ -123,6 +129,15 @@ func convertSingleFile(inputPath, pattern, outputDir string, dryRun bool, index 
 		return
 	}
 
+	// Check if output file exists and force is not set
+	if !force {
+		if _, err := os.Stat(outputPath); err == nil {
+			fmt.Printf("  Output file exists: %s (use --force to overwrite)\n", filepath.Base(outputPath))
+			fmt.Println("✓ Converted 0 files, 1 skipped (use --force)")
+			return
+		}
+	}
+
 	err = converter.Convert(inputPath, outputPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -132,7 +147,7 @@ func convertSingleFile(inputPath, pattern, outputDir string, dryRun bool, index 
 	fmt.Println("✓ Converted 1 file")
 }
 
-func convertDirectory(dirPath, pattern, outputDir string, dryRun bool) {
+func convertDirectory(dirPath, pattern, outputDir string, dryRun, force bool) {
 	// Find all HEIC files
 	heicFiles, err := scanner.FindHEICFiles(dirPath)
 	if err != nil {
@@ -157,6 +172,7 @@ func convertDirectory(dirPath, pattern, outputDir string, dryRun bool) {
 	// Convert each file
 	successCount := 0
 	failCount := 0
+	skippedCount := 0
 
 	for i, inputPath := range heicFiles {
 		// Generate output path using naming pattern (index is 1-based)
@@ -175,6 +191,15 @@ func convertDirectory(dirPath, pattern, outputDir string, dryRun bool) {
 			continue
 		}
 
+		// Check if output file exists and force is not set
+		if !force {
+			if _, err := os.Stat(outputPath); err == nil {
+				fmt.Printf("  Output file exists: %s (use --force to overwrite)\n", filepath.Base(outputPath))
+				skippedCount++
+				continue
+			}
+		}
+
 		err = converter.Convert(inputPath, outputPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  Error: %v\n", err)
@@ -187,8 +212,12 @@ func convertDirectory(dirPath, pattern, outputDir string, dryRun bool) {
 	// Print summary
 	if dryRun {
 		fmt.Printf("✓ Would convert %d file(s) (dry-run)\n", successCount)
-	} else if failCount == 0 {
+	} else if failCount == 0 && skippedCount == 0 {
 		fmt.Printf("✓ Converted %d file(s)\n", successCount)
+	} else if skippedCount > 0 && failCount == 0 {
+		fmt.Printf("✓ Converted %d file(s), %d skipped (use --force)\n", successCount, skippedCount)
+	} else if skippedCount > 0 && failCount > 0 {
+		fmt.Printf("✓ Converted %d file(s), %d skipped (use --force), %d failed\n", successCount, skippedCount, failCount)
 	} else {
 		fmt.Printf("✓ Converted %d file(s), %d failed\n", successCount, failCount)
 	}

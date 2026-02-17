@@ -206,6 +206,162 @@ func TestE2E_InvalidFile(t *testing.T) {
 	}
 }
 
+func TestE2E_OverwriteProtection_SingleFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.heic")
+	jpgFile := filepath.Join(tmpDir, "test.jpg")
+
+	// Copy test HEIC file
+	copyFile(t, testHEIC, testFile)
+
+	// First conversion - should succeed
+	cmd := exec.Command("./"+binaryName, testFile)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("First conversion failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify JPG was created
+	if !fileExists(jpgFile) {
+		t.Fatalf("Expected output file %s does not exist", jpgFile)
+	}
+
+	// Get original file info
+	originalInfo, err := os.Stat(jpgFile)
+	if err != nil {
+		t.Fatalf("Failed to stat output file: %v", err)
+	}
+
+	// Second conversion without --force - should skip
+	cmd = exec.Command("./"+binaryName, testFile)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Second conversion failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Output file exists") {
+		t.Errorf("Output should mention file exists, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "use --force") {
+		t.Errorf("Output should mention --force flag, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "1 skipped") {
+		t.Errorf("Output should mention 1 skipped, got: %s", outputStr)
+	}
+
+	// Verify file was NOT overwritten (same modification time)
+	newInfo, err := os.Stat(jpgFile)
+	if err != nil {
+		t.Fatalf("Failed to stat output file after second run: %v", err)
+	}
+	if !newInfo.ModTime().Equal(originalInfo.ModTime()) {
+		t.Errorf("File was modified when it should have been skipped")
+	}
+}
+
+func TestE2E_OverwriteProtection_WithForce(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.heic")
+	jpgFile := filepath.Join(tmpDir, "test.jpg")
+
+	// Copy test HEIC file
+	copyFile(t, testHEIC, testFile)
+
+	// First conversion
+	cmd := exec.Command("./"+binaryName, testFile)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("First conversion failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify JPG was created
+	if !fileExists(jpgFile) {
+		t.Fatalf("Expected output file %s does not exist", jpgFile)
+	}
+
+	// Get original file info
+	originalInfo, err := os.Stat(jpgFile)
+	if err != nil {
+		t.Fatalf("Failed to stat output file: %v", err)
+	}
+
+	// Second conversion with --force - should overwrite
+	cmd = exec.Command("./"+binaryName, "--force", testFile)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Second conversion with --force failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	if strings.Contains(outputStr, "skipped") {
+		t.Errorf("Output should not mention skipped with --force, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "Converted 1 file") {
+		t.Errorf("Output should mention converted 1 file, got: %s", outputStr)
+	}
+
+	// Verify file WAS overwritten (different modification time)
+	newInfo, err := os.Stat(jpgFile)
+	if err != nil {
+		t.Fatalf("Failed to stat output file after second run: %v", err)
+	}
+	if newInfo.ModTime().Equal(originalInfo.ModTime()) {
+		t.Errorf("File was not modified when it should have been overwritten with --force")
+	}
+}
+
+func TestE2E_OverwriteProtection_Directory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Copy multiple HEIC files
+	copyFile(t, testHEIC, filepath.Join(tmpDir, "file1.heic"))
+	copyFile(t, testHEIC, filepath.Join(tmpDir, "file2.heic"))
+	copyFile(t, testHEIC, filepath.Join(tmpDir, "file3.heic"))
+
+	// First conversion - should convert all 3
+	cmd := exec.Command("./"+binaryName, tmpDir)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("First conversion failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Converted 3 file") {
+		t.Errorf("Output should mention converted 3 files, got: %s", outputStr)
+	}
+
+	// Second conversion without --force - should skip all 3
+	cmd = exec.Command("./"+binaryName, tmpDir)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Second conversion failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr = string(output)
+	if !strings.Contains(outputStr, "3 skipped") {
+		t.Errorf("Output should mention 3 skipped, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "use --force") {
+		t.Errorf("Output should mention --force flag, got: %s", outputStr)
+	}
+
+	// Third conversion with --force - should convert all 3
+	cmd = exec.Command("./"+binaryName, "--force", tmpDir)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Third conversion with --force failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr = string(output)
+	if !strings.Contains(outputStr, "Converted 3 file") {
+		t.Errorf("Output should mention converted 3 files with --force, got: %s", outputStr)
+	}
+	if strings.Contains(outputStr, "skipped") {
+		t.Errorf("Output should not mention skipped with --force, got: %s", outputStr)
+	}
+}
+
 // Helper functions
 
 func copyFile(t *testing.T, src, dst string) {
