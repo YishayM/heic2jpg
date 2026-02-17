@@ -2,8 +2,10 @@ package converter
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 )
 
@@ -288,4 +290,127 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestIsDiskFullError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "ENOSPC error",
+			err:      syscall.ENOSPC,
+			expected: true,
+		},
+		{
+			name:     "wrapped ENOSPC error",
+			err:      errors.New("write failed: " + syscall.ENOSPC.Error()),
+			expected: false, // String matching doesn't work with errors.Is
+		},
+		{
+			name:     "other error",
+			err:      errors.New("some other error"),
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isDiskFullError(tt.err)
+			if result != tt.expected {
+				t.Errorf("isDiskFullError(%v) = %v, want %v", tt.err, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestWrapDiskFullError(t *testing.T) {
+	outputPath := "/tmp/output.jpg"
+
+	tests := []struct {
+		name           string
+		err            error
+		expectDiskFull bool
+	}{
+		{
+			name:           "ENOSPC error",
+			err:            syscall.ENOSPC,
+			expectDiskFull: true,
+		},
+		{
+			name:           "other error",
+			err:            errors.New("some other error"),
+			expectDiskFull: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wrapped := wrapDiskFullError(tt.err, outputPath)
+
+			if tt.expectDiskFull {
+				var diskFullErr *DiskFullError
+				if !errors.As(wrapped, &diskFullErr) {
+					t.Errorf("wrapDiskFullError() should return DiskFullError for ENOSPC, got %T", wrapped)
+				}
+				if diskFullErr != nil && diskFullErr.OutputPath != outputPath {
+					t.Errorf("DiskFullError.OutputPath = %s, want %s", diskFullErr.OutputPath, outputPath)
+				}
+				expectedMsg := "Disk full - cannot write " + outputPath
+				if wrapped.Error() != expectedMsg {
+					t.Errorf("DiskFullError.Error() = %s, want %s", wrapped.Error(), expectedMsg)
+				}
+			} else {
+				if wrapped != tt.err {
+					t.Errorf("wrapDiskFullError() should return original error for non-ENOSPC errors")
+				}
+			}
+		})
+	}
+}
+
+func TestIsDiskFullErrorFunc(t *testing.T) {
+	outputPath := "/tmp/output.jpg"
+
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "DiskFullError",
+			err:      &DiskFullError{OutputPath: outputPath},
+			expected: true,
+		},
+		{
+			name:     "wrapped DiskFullError",
+			err:      errors.New("failed: " + (&DiskFullError{OutputPath: outputPath}).Error()),
+			expected: false, // String wrapping doesn't preserve type
+		},
+		{
+			name:     "other error",
+			err:      errors.New("some other error"),
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsDiskFullError(tt.err)
+			if result != tt.expected {
+				t.Errorf("IsDiskFullError(%v) = %v, want %v", tt.err, result, tt.expected)
+			}
+		})
+	}
 }
