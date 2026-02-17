@@ -1,6 +1,26 @@
 # heic2jpg
 
+> Convert HEIC photos to JPEG with a single command. No installation required.
+
+[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A fast, simple command-line tool to convert HEIC images to JPEG format while preserving EXIF metadata.
+
+## Quick Start
+
+```bash
+# Download and install (macOS Apple Silicon)
+curl -L -o heic2jpg https://github.com/yourusername/heic2jpg/releases/latest/download/heic2jpg-darwin-arm64
+chmod +x heic2jpg
+sudo mv heic2jpg /usr/local/bin/
+
+# Convert all HEIC files in current directory
+heic2jpg
+
+# Convert with custom output directory
+heic2jpg --output ./converted photos/
+```
 
 ## Features
 
@@ -47,7 +67,7 @@ sudo mv heic2jpg /usr/local/bin/
 ### Build from Source
 
 Requirements:
-- Go 1.25 or later
+- Go 1.21+ or later
 - C compiler (for CGO dependencies)
 
 ```bash
@@ -186,10 +206,58 @@ The `make build-all` target will attempt cross-compilation but will gracefully s
 make clean
 ```
 
+## Troubleshooting
+
+### "No HEIC files found"
+- Ensure the directory contains `.heic` or `.HEIC` files
+- Check file permissions - the tool needs read access to the files
+
+### "Failed to decode HEIC"
+- The HEIC file may be corrupted
+- Try opening the file in another application to verify it's valid
+- Some HEIC variants may not be supported by the underlying library
+
+### "Permission denied" when writing output
+- Check that you have write permissions to the output directory
+- If using `--output`, ensure the directory exists or the tool can create it
+
+### Build errors with CGO
+- Ensure you have a C compiler installed (gcc on Linux, Xcode Command Line Tools on macOS)
+- On Linux, you may need to install development libraries: `sudo apt-get install libde265-dev`
+- On macOS, install Xcode Command Line Tools: `xcode-select --install`
+
+### Cross-compilation issues
+- Cross-compiling with CGO is complex due to C dependencies
+- For best results, build natively on each target platform
+- See the "Building" section for platform-specific build instructions
+
+## FAQ
+
+### Does this work with HEIF files?
+Yes, HEIC is a variant of HEIF. The tool should work with most HEIF images.
+
+### Is the image quality preserved?
+Images are encoded at 95% JPEG quality, which provides excellent quality while reducing file size. The conversion is lossy, as JPEG is a lossy format.
+
+### What happens to the original files?
+Original HEIC files are never modified or deleted. The tool only creates new JPEG files.
+
+### Can I convert back from JPEG to HEIC?
+No, this tool only converts HEIC → JPEG. Converting JPEG → HEIC would require a different tool.
+
+### Does it preserve photo metadata?
+Yes, all EXIF metadata (including date, location, camera settings) is preserved in the output JPEG files.
+
+### Can I use this in a script or automation?
+Yes! The tool is designed for command-line use and works great in scripts. Use `--dry-run` to test your commands first.
+
+### What platforms are supported?
+macOS (Intel and Apple Silicon), Linux (x86_64), and Windows (x86_64). Other platforms may work if you build from source.
+
 ## License
 
 MIT License - see LICENSE file for details
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
