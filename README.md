@@ -10,17 +10,14 @@ A fast, simple command-line tool to convert HEIC images to JPEG format while pre
 ## Quick Start
 
 ```bash
-# Build from source
-git clone <repository-url>
-cd heic2jpg
-make build
-sudo mv dist/heic2jpg-* /usr/local/bin/heic2jpg
-
 # Convert all HEIC files in current directory
 heic2jpg
 
-# Convert with custom output directory
-heic2jpg --output ./converted photos/
+# Convert a specific directory
+heic2jpg photos/
+
+# Convert recursively with custom output
+heic2jpg -r --output ./converted photos/
 ```
 
 ## Features
@@ -34,45 +31,29 @@ heic2jpg --output ./converted photos/
 
 ## Installation
 
-### Download Pre-built Binaries
+### Option 1: Download Binary
 
-Download the latest release for your platform from the [Releases page](../../releases/latest).
+Go to the [Releases page](https://github.com/yishaym/heic2jpg/releases/latest) and download the binary for your platform:
 
-**macOS (Apple Silicon / M1/M2/M3):**
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `heic2jpg-darwin-arm64` |
+| macOS (Intel) | `heic2jpg-darwin-amd64` |
+| Linux | `heic2jpg-linux-amd64` |
+| Windows | `heic2jpg-windows-amd64.exe` |
+
+**Install on macOS/Linux:**
 ```bash
-# Download, make executable, and install
-curl -L -o heic2jpg "$(curl -s https://api.github.com/repos/OWNER/REPO/releases/latest | grep -o 'https://.*heic2jpg-darwin-arm64')"
-chmod +x heic2jpg
-sudo mv heic2jpg /usr/local/bin/
+chmod +x heic2jpg-*
+sudo mv heic2jpg-* /usr/local/bin/heic2jpg
 ```
 
-**macOS (Intel):**
-```bash
-curl -L -o heic2jpg "$(curl -s https://api.github.com/repos/OWNER/REPO/releases/latest | grep -o 'https://.*heic2jpg-darwin-amd64')"
-chmod +x heic2jpg
-sudo mv heic2jpg /usr/local/bin/
-```
+### Option 2: Build from Source
 
-**Linux (x86_64):**
-```bash
-curl -L -o heic2jpg "$(curl -s https://api.github.com/repos/OWNER/REPO/releases/latest | grep -o 'https://.*heic2jpg-linux-amd64')"
-chmod +x heic2jpg
-sudo mv heic2jpg /usr/local/bin/
-```
-
-**Windows (x86_64):**
-Download `heic2jpg-windows-amd64.exe` from the [Releases page](../../releases/latest) and add to your PATH.
-
-> **Note:** Replace `OWNER/REPO` in the URLs above with the actual GitHub repository path after publishing.
-
-### Build from Source
-
-Requirements:
-- Go 1.21+ or later
-- C compiler (for CGO dependencies)
+Requirements: Go 1.21+, C compiler
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/yishaym/heic2jpg.git
 cd heic2jpg
 make build
 ```
