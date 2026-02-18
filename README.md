@@ -48,6 +48,18 @@ chmod +x heic2jpg-*
 sudo mv heic2jpg-* /usr/local/bin/heic2jpg
 ```
 
+**Install on Windows:**
+1. Download `heic2jpg-windows-amd64.exe` from the [Releases page](https://github.com/yishaym/heic2jpg/releases/latest)
+2. Rename it to `heic2jpg.exe` (optional, for easier typing)
+3. Move it to a folder like `C:\Tools\`
+4. Add that folder to your PATH:
+   - Press `Win + R`, type `sysdm.cpl`, press Enter
+   - Go to **Advanced** → **Environment Variables**
+   - Under "User variables", select **Path** → **Edit** → **New**
+   - Add `C:\Tools` (or wherever you put the file)
+   - Click **OK** on all windows
+5. Open a new Command Prompt and type `heic2jpg` to verify it works
+
 ### Option 2: Build from Source
 
 Requirements: Go 1.21+, C compiler
