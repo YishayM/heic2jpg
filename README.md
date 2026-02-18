@@ -34,6 +34,37 @@ heic2jpg --output ./converted photos/
 
 ## Installation
 
+### Download Pre-built Binaries
+
+Download the latest release for your platform from the [Releases page](../../releases/latest).
+
+**macOS (Apple Silicon / M1/M2/M3):**
+```bash
+# Download, make executable, and install
+curl -L -o heic2jpg "$(curl -s https://api.github.com/repos/OWNER/REPO/releases/latest | grep -o 'https://.*heic2jpg-darwin-arm64')"
+chmod +x heic2jpg
+sudo mv heic2jpg /usr/local/bin/
+```
+
+**macOS (Intel):**
+```bash
+curl -L -o heic2jpg "$(curl -s https://api.github.com/repos/OWNER/REPO/releases/latest | grep -o 'https://.*heic2jpg-darwin-amd64')"
+chmod +x heic2jpg
+sudo mv heic2jpg /usr/local/bin/
+```
+
+**Linux (x86_64):**
+```bash
+curl -L -o heic2jpg "$(curl -s https://api.github.com/repos/OWNER/REPO/releases/latest | grep -o 'https://.*heic2jpg-linux-amd64')"
+chmod +x heic2jpg
+sudo mv heic2jpg /usr/local/bin/
+```
+
+**Windows (x86_64):**
+Download `heic2jpg-windows-amd64.exe` from the [Releases page](../../releases/latest) and add to your PATH.
+
+> **Note:** Replace `OWNER/REPO` in the URLs above with the actual GitHub repository path after publishing.
+
 ### Build from Source
 
 Requirements:

@@ -34,17 +34,20 @@ jobs:
     needs: test
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
             binary_name: heic2jpg-linux-amd64
-          - os: macos-latest
+          # macOS arm64 (Apple Silicon) - use macos-14 which is native arm64
+          - os: macos-14
             goos: darwin
             goarch: arm64
             binary_name: heic2jpg-darwin-arm64
-          - os: macos-latest
+          # macOS amd64 (Intel) - use macos-13 which is native x86_64
+          - os: macos-13
             goos: darwin
             goarch: amd64
             binary_name: heic2jpg-darwin-amd64
@@ -69,24 +72,39 @@ jobs:
           sudo apt-get install -y gcc
 
       - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-latest'
+        if: startsWith(matrix.os, 'macos')
         run: |
           # Xcode Command Line Tools should already be available
-          xcode-select --install 2>/dev/null || true
+          xcode-select --print-path || xcode-select --install
 
       - name: Install dependencies (Windows)
         if: matrix.os == 'windows-latest'
+        shell: powershell
         run: |
-          # MinGW should be available in the GitHub Actions environment
-          choco install mingw -y
+          # TDM-GCC is more reliable for CGO on Windows
+          choco install tdm-gcc -y
+          # Refresh environment
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-      - name: Build binary
+      - name: Build binary (Unix)
+        if: matrix.os != 'windows-latest'
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 1
         run: |
           mkdir -p dist
+          go build -trimpath -ldflags "-s -w" -o dist/${{ matrix.binary_name }} ./cmd/heic2jpg
+
+      - name: Build binary (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: cmd
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          if not exist dist mkdir dist
           go build -trimpath -ldflags "-s -w" -o dist/${{ matrix.binary_name }} ./cmd/heic2jpg
 
       - name: Upload artifact
