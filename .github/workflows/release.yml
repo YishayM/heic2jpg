@@ -81,10 +81,9 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
-          # TDM-GCC is more reliable for CGO on Windows
-          choco install tdm-gcc -y
-          # Refresh environment
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          # MinGW is available by default on windows-latest runners
+          # Just ensure gcc is in PATH
+          gcc --version
 
       - name: Build binary (Unix)
         if: matrix.os != 'windows-latest'

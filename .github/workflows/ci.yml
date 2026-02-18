@@ -35,7 +35,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
-          choco install tdm-gcc -y
+          # MinGW is available by default on windows-latest runners
+          gcc --version
 
       - name: Run tests
         run: go test -v ./...
