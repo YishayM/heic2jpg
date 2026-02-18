@@ -41,13 +41,13 @@ jobs:
             goos: linux
             goarch: amd64
             binary_name: heic2jpg-linux-amd64
-          # macOS arm64 (Apple Silicon) - use macos-14 which is native arm64
-          - os: macos-14
+          # macOS arm64 (Apple Silicon)
+          - os: macos-latest
             goos: darwin
             goarch: arm64
             binary_name: heic2jpg-darwin-arm64
-          # macOS amd64 (Intel) - use macos-13 which is native x86_64
-          - os: macos-13
+          # macOS amd64 (Intel) - cross-compile on arm64 runner
+          - os: macos-latest
             goos: darwin
             goarch: amd64
             binary_name: heic2jpg-darwin-amd64
