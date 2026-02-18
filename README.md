@@ -10,10 +10,11 @@ A fast, simple command-line tool to convert HEIC images to JPEG format while pre
 ## Quick Start
 
 ```bash
-# Download and install (macOS Apple Silicon)
-curl -L -o heic2jpg https://github.com/yourusername/heic2jpg/releases/latest/download/heic2jpg-darwin-arm64
-chmod +x heic2jpg
-sudo mv heic2jpg /usr/local/bin/
+# Build from source
+git clone <repository-url>
+cd heic2jpg
+make build
+sudo mv dist/heic2jpg-* /usr/local/bin/heic2jpg
 
 # Convert all HEIC files in current directory
 heic2jpg
@@ -33,39 +34,6 @@ heic2jpg --output ./converted photos/
 
 ## Installation
 
-### Download Pre-built Binaries
-
-> **Note:** Replace `yourusername` in the URLs below with the actual GitHub username/organization after publishing.
-
-Download the appropriate binary for your platform:
-
-**macOS (Apple Silicon / M1/M2/M3):**
-```bash
-curl -L -o heic2jpg https://github.com/yourusername/heic2jpg/releases/latest/download/heic2jpg-darwin-arm64
-chmod +x heic2jpg
-sudo mv heic2jpg /usr/local/bin/
-```
-
-**macOS (Intel):**
-```bash
-curl -L -o heic2jpg https://github.com/yourusername/heic2jpg/releases/latest/download/heic2jpg-darwin-amd64
-chmod +x heic2jpg
-sudo mv heic2jpg /usr/local/bin/
-```
-
-**Linux (x86_64):**
-```bash
-curl -L -o heic2jpg https://github.com/yourusername/heic2jpg/releases/latest/download/heic2jpg-linux-amd64
-chmod +x heic2jpg
-sudo mv heic2jpg /usr/local/bin/
-```
-
-**Windows (x86_64):**
-```powershell
-# Download from: https://github.com/yourusername/heic2jpg/releases/latest/download/heic2jpg-windows-amd64.exe
-# Add to PATH or run directly
-```
-
 ### Build from Source
 
 Requirements:
@@ -73,12 +41,22 @@ Requirements:
 - C compiler (for CGO dependencies)
 
 ```bash
-git clone https://github.com/yourusername/heic2jpg.git
+git clone <repository-url>
 cd heic2jpg
 make build
 ```
 
 The binary will be in the `dist/` directory.
+
+**Install the binary:**
+```bash
+# macOS/Linux
+chmod +x dist/heic2jpg-*
+sudo mv dist/heic2jpg-* /usr/local/bin/heic2jpg
+
+# Or add to your PATH
+export PATH=$PATH:$(pwd)/dist
+```
 
 ## Usage
 
