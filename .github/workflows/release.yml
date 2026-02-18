@@ -104,7 +104,7 @@ jobs:
           CGO_ENABLED: 1
         run: |
           if not exist dist mkdir dist
-          go build -trimpath -ldflags "-s -w" -o dist/${{ matrix.binary_name }} ./cmd/heic2jpg
+          go build -trimpath -ldflags "-s -w -extldflags '-static'" -o dist/${{ matrix.binary_name }} ./cmd/heic2jpg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
